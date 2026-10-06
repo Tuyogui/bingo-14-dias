@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Bingo 14 días</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #f8eee9, #eee8f5);
+        color: #403b46;
+        display: flex;
+        justify-content: center;
+        padding: 20px 12px 40px;
+    }
+
+    .contenedor {
+        width: 100%;
+        max-width: 650px;
+    }
+
+    .cabecera {
+        text-align: center;
+        margin-bottom: 22px;
+    }
+
+    .cabecera h1 {
+        margin: 0 0 8px;
+        font-size: 30px;
+        font-weight: 700;
+    }
+
+    .cabecera p {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.5;
+        opacity: .8;
+    }
+
+    .numero-carton {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 7px 14px;
+        border-radius: 20px;
+        background: rgba(255,255,255,.7);
+        font-size: 13px;
+    }
+
+    .bingo {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
+
+    .casilla {
+        min-height: 145px;
+        border: 0;
+        border-radius: 16px;
+        padding: 13px 9px;
+        background: rgba(255,255,255,.9);
+        color: #403b46;
+        font-size: 13px;
+        line-height: 1.3;
+        cursor: pointer;
+        box-shadow: 0 3px 12px rgba(70,50,70,.08);
+        transition: transform .15s, opacity .15s, background .15s;
+    }
+
+    .casilla:active {
+        transform: scale(.97);
+    }
+
+    .casilla.marcada {
+        background: #81738e;
+        color: white;
+        opacity: .9;
+    }
+
+    .casilla.marcada::before {
+        content: "✓";
+        display: block;
+        font-size: 25px;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .progreso {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 14px;
+    }
+
+    .barra {
+        height: 8px;
+        background: rgba(255,255,255,.7);
+        border-radius: 20px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+
+    .barra-interior {
+        height: 100%;
+        width: 0%;
+        background: #81738e;
+        transition: width .3s;
+    }
+
+    .instrucciones {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 12px;
+        opacity: .65;
+    }
+
+    @media (max-width: 480px) {
+        body {
+            padding: 14px 8px 30px;
+        }
+
+        .cabecera h1 {
+            font-size: 25px;
+        }
+
+        .bingo {
+            gap: 5px;
+        }
+
+        .casilla {
+            min-height: 125px;
+            padding: 10px 6px;
+            border-radius: 12px;
+            font-size: 11.5px;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <div class="cabecera">
+        <h1>✨ Bingo 14 días ✨</h1>
+
+        <p>
+            Cada día se anunciará una actividad.<br>
+            Cuando la hagas, toca la casilla para marcarla.
+        </p>
+
+        <div class="numero-carton" id="numeroCarton"></div>
+    </div>
+
+    <div class="bingo" id="bingo"></div>
+
+    <div class="progreso">
+        <span id="textoProgreso">0 de 16 actividades completadas</span>
+
+        <div class="barra">
+            <div class="barra-interior" id="barraInterior"></div>
+        </div>
+    </div>
+
+    <div class="instrucciones">
+        Tus casillas quedan guardadas automáticamente en este dispositivo.
+    </div>
+
+</div>
+
+<script>
+
+/* =========================================================
+   LAS 16 ACTIVIDADES
+   ========================================================= */
+
+const actividades = [
+    "Haz una clase de yoga suave",
+
+    "Haz una meditación de 10 minutos",
+
+    "Haz un pranayama durante 5 minutos",
+
+    "Haz una clase de yoga y fuerza",
+
+    "Haz una clase de yoga de 30 minutos",
+
+    "Acción de autocuidado",
+
+    "30 minutos sin móvil ni pantallas",
+
+    "Haz algo que llevas tiempo posponiendo",
+
+    "Haz una clase de yoga dinámico",
+
+    "Haz una clase de yoga que nunca harías",
+
+    "Haz una clase de yin yoga",
+
+    "Ten un día \"perfecto\"",
+
+    "Haz un yoga Nidra",
+
+    "Haz una meditación de 10 minutos",
+
+    "Haz un pranayama durante 8 minutos",
+
+    "Ven a un directo de Tuyogui"
+];
+
+
+/* =========================================================
+   LEER EL NÚMERO DEL CARTÓN DESDE EL ENLACE
+   Ejemplo:
+   ?carton=01
+   ?carton=02
+   etc.
+   ========================================================= */
+
+const parametros = new URLSearchParams(window.location.search);
+
+let numeroCarton = parseInt(parametros.get("carton")) || 1;
+
+if (numeroCarton < 1 || numeroCarton > 30) {
+    numeroCarton = 1;
+}
+
+
+/* =========================================================
+   GENERADOR ALEATORIO
+   Permite que cada cartón tenga un orden diferente,
+   pero que siempre sea el mismo para ese número de cartón.
+   ========================================================= */
+
+function generadorSemilla(semilla) {
+
+    let valor = semilla;
+
+    return function() {
+
+        valor = (valor * 9301 + 49297) % 233280;
+
+        return valor / 233280;
+    };
+}
+
+
+/* =========================================================
+   CREAR LOS 30 CARTONES
+   ========================================================= */
+
+function crearCartones() {
+
+    const cartones = [];
+
+    const usados = new Set();
+
+    for (let numero = 1; numero <= 30; numero++) {
+
+        let aleatorio = generadorSemilla(numero * 7843);
+
+        let actividadesCarton;
+
+        do {
+
+            actividadesCarton = [...actividades];
+
+            for (let i = actividadesCarton.length - 1; i > 0; i--) {
+
+                const j = Math.floor(aleatorio() * (i + 1));
+
+                [
+                    actividadesCarton[i],
+                    actividadesCarton[j]
+                ] = [
+                    actividadesCarton[j],
+                    actividadesCarton[i]
+                ];
+
+            }
+
+        } while (usados.has(actividadesCarton.join("|")));
+
+        usados.add(actividadesCarton.join("|"));
+
+        cartones.push(actividadesCarton);
+    }
+
+    return cartones;
+}
+
+const cartones = crearCartones();
+
+const miCarton = cartones[numeroCarton - 1];
+
+
+/* =========================================================
+   MOSTRAR NÚMERO DE CARTÓN
+   ========================================================= */
+
+document.getElementById("numeroCarton").textContent =
+    "Cartón " + String(numeroCarton).padStart(2, "0");
+
+
+/* =========================================================
+   GUARDAR EL PROGRESO
+   Cada cartón tiene su propio almacenamiento.
+   ========================================================= */
+
+const claveGuardado = "bingo14dias_carton_" + numeroCarton;
+
+let marcadas = JSON.parse(
+    localStorage.getItem(claveGuardado) || "[]"
+);
+
+
+/* =========================================================
+   CREAR LAS CASILLAS
+   ========================================================= */
+
+const bingo = document.getElementById("bingo");
+
+miCarton.forEach((actividad, indice) => {
+
+    const casilla = document.createElement("button");
+
+    casilla.className = "casilla";
+
+    casilla.textContent = actividad;
+
+    if (marcadas.includes(indice)) {
+        casilla.classList.add("marcada");
+    }
+
+    casilla.addEventListener("click", () => {
+
+        if (marcadas.includes(indice)) {
+
+            marcadas = marcadas.filter(
+                numero => numero !== indice
+            );
+
+            casilla.classList.remove("marcada");
+
+        } else {
+
+            marcadas.push(indice);
+
+            casilla.classList.add("marcada");
+        }
+
+        localStorage.setItem(
+            claveGuardado,
+            JSON.stringify(marcadas)
+        );
+
+        actualizarProgreso();
+    });
+
+    bingo.appendChild(casilla);
+});
+
+
+/* =========================================================
+   PROGRESO
+   ========================================================= */
+
+function actualizarProgreso() {
+
+    const total = actividades.length;
+
+    const completadas = marcadas.length;
+
+    const porcentaje =
+        (completadas / total) * 100;
+
+    document.getElementById("textoProgreso").textContent =
+        completadas +
+        " de " +
+        total +
+        " actividades completadas";
+
+    document.getElementById("barraInterior").style.width =
+        porcentaje + "%";
+}
+
+actualizarProgreso();
+
+</script>
+
+</body>
+</html>
